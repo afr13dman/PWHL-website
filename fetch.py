@@ -115,6 +115,8 @@ def parse_game(game_id: str, home_id: str, use_shootouts: bool = True):
     visiting_penalties = [[], [], []]
 
     ot_ppexp_nowhistle = 0
+    
+    events_processed = 0
 
     for current_time in range(max_time + 1):
         ot_ppexp_nowhistle += penalty_expiration(home_penalties, current_time)
@@ -141,8 +143,10 @@ def parse_game(game_id: str, home_id: str, use_shootouts: bool = True):
             current_start = current_time
         
         # Process events at this second
-        for event in events:
-            if event['event_time'] == current_time:
+        for event in events[events_processed:]:
+            if event['event_time'] >= current_time:
+                break
+            else:
                 event_type = event["event"]
                 event_team = event.get("team_id", event.get("team", -1))
                 raw_time = event.get("time_formatted", event.get("time", event.get("time_off_formatted", "-1:-1")))
@@ -213,6 +217,8 @@ def parse_game(game_id: str, home_id: str, use_shootouts: bool = True):
                 # faceoff
                 elif event_type == "faceoff":
                     ot_ppexp_nowhistle = 0
+
+                events_processed += 1
     
     if current_state is not None:
         states.append({
