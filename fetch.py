@@ -1,7 +1,11 @@
-import duckdb
+from sqlalchemy import create_engine
 import requests
 import pandas as pd
-import json
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+conn_string = os.getenv("CONN_STRING")
 
 def fetch_pbp(game_id: str):
     response = requests.get(f"https://lscluster.hockeytech.com/feed/index.php?feed=gc&tab=pxpverbose&game_id={game_id}&key=446521baf8c38984&client_code=pwhl")
@@ -80,6 +84,12 @@ def early_exp(penalties):
 def parse_game(game_id: str, home_id: str, use_shootouts: bool = True):
     # right now this just spits pbp data into console
     events = fetch_pbp(game_id)
+
+    events_out = []
+    assists_out = []
+    plusminus_out = []
+    shots_out = []
+    states_out = []
     
     # TEST CODE 
     #events = None
@@ -144,9 +154,10 @@ def parse_game(game_id: str, home_id: str, use_shootouts: bool = True):
         
         # Process events at this second
         for event in events[events_processed:]:
-            if event['event_time'] >= current_time:
+            if event['event_time'] > current_time:
                 break
             else:
+                event_id = f"{game_id}{events_processed:04}"
                 event_type = event["event"]
                 event_team = event.get("team_id", event.get("team", -1))
                 raw_time = event.get("time_formatted", event.get("time", event.get("time_off_formatted", "-1:-1")))
@@ -216,8 +227,36 @@ def parse_game(game_id: str, home_id: str, use_shootouts: bool = True):
 
                 # faceoff
                 elif event_type == "faceoff":
+                    print(f"{period} - {raw_time}: faceoff {current_time}")
                     ot_ppexp_nowhistle = 0
 
+                # compile tables
+                if event_type in ["faceoff", "shot", "hit", "blocked_shot"]:
+                    events_out.append({"event_id": event_id, "type": event_type, "time": current_time, "x": event["x_location"], "y": event["y_location"]})
+                if event_type in ["shot"]:
+                    shots_out.append({"event_id": event_id, 
+                                      "shot_type": event["shot_type"], 
+                                      "player_id": event["player"]["player_id"], 
+                                      "goalie_id": event["goalie"]["player_id"],
+                                      "is_goal": event["game_goal_id"] != "",
+                                      "shot_team_id": event["player"]["team_id"],
+                                      "goalie_team_id": event["goalie"]["team_id"]
+                                      })
+                if event_type in ["goal"]:
+                    event_id = f"{game_id}{(events_processed - 1):04}"
+                    if event["assist1_player_id"]:
+                        assists_out.append({"event_id": event_id, "player_id": event["assist1_player_id"], "primary_assist": True})
+                    if event["assist2_player_id"]:
+                        assists_out.append({"event_id": event_id, "player_id": event["assist2_player_id"], "primary_assist": False})
+                    for player in event["plus"]:
+                        plusminus_out.append({"event_id": event_id, "player_id": player["player_id"], "plus": True})
+                    for player in event["minus"]:
+                        plusminus_out.append({"event_id": event_id, "player_id": player["player_id"], "plus": False})
+                        
+                        
+
+                
+                # move to next event and restart loop
                 events_processed += 1
     
     if current_state is not None:
@@ -232,6 +271,18 @@ def parse_game(game_id: str, home_id: str, use_shootouts: bool = True):
     for s in states:
         print(f"State {s['state']}: from {s['start']} to {s['end']}")
 
+    # push to postgres
+    engine = create_engine(conn_string)
+    events_out = pd.DataFrame(events_out)
+    events_out.to_sql('events', engine, if_exists='replace', index=False)
+    shots_out = pd.DataFrame(shots_out)
+    shots_out.to_sql('shots', engine, if_exists='replace', index=False)
+    assists_out = pd.DataFrame(assists_out)
+    assists_out.to_sql('assists', engine, if_exists='replace', index=False)
+    plusminus_out = pd.DataFrame(plusminus_out)
+    plusminus_out.to_sql('plusminus', engine, if_exists='replace', index=False)
+
+
 # Right now this does nothing don't call it
 def parse_season(season_id: str):
     schedule = fetch_schedule(season_id)
@@ -241,4 +292,4 @@ def parse_season(season_id: str):
         game_id = game["game_id"]
 
 if __name__ == "__main__":
-    parse_game("199", "3", use_shootouts=False)
+    parse_game("138", "3")
