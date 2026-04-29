@@ -15,6 +15,10 @@ def fetch_schedule(season_id: str):
     response = requests.get(f"https://lscluster.hockeytech.com/feed/?feed=modulekit&view=schedule&season_id={season_id}&key=446521baf8c38984&client_code=pwhl")
     return response.json()["SiteKit"]["Schedule"]
 
+def fetch_seasons():
+    response = requests.get(f"https://lscluster.hockeytech.com/feed/index.php?feed=modulekit&view=seasons&key=446521baf8c38984&client_code=pwhl")
+    return response.json()['SiteKit']['Seasons']
+
 def time_to_seconds(time_str: str, period: str) -> int:
     minutes, seconds = map(float, time_str.split(':'))
     period = int(period)
@@ -82,6 +86,7 @@ def early_exp(penalties):
             penalties[i]["end"] = penalties[i]["start"] + penalties[i]["length"]
 
 def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool = True):
+    print(f"Parsing game {game_id}")
     # right now this just spits pbp data into console
     events = fetch_pbp(game_id)
 
@@ -91,6 +96,7 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
     shots_out = []
     states_out = []
     teamstates_out = []
+    penalties_out = []
     
     # TEST CODE 
     #events = None
@@ -104,7 +110,6 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
         event['event_time'] = time_to_seconds(raw_time, period)
     
     max_time = 3600
-    print(events[-1]["event"])
     if events[-1]["event"] == "shootout":
         max_time = 3900
     if events[-1]["event"] == "goal":
@@ -153,8 +158,8 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
                 states_out.append({
                     'state_id': f"{game_id}{current_start:05}",
                     'game_id': game_id,
-                    'start': current_start,
-                    'end': max_time,
+                    'start_time': current_start,
+                    'end_time': max_time,
                 })
                 teamstates_out.append({
                     'state_id': f"{game_id}{current_start:05}",
@@ -188,17 +193,13 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
                     if current_time == 0:
                         if event_team == home_id:
                             home_goalie = event["goalie_in_id"]
-                            print(f"Home goalie: {home_goalie}")
                         else:
                             visiting_goalie = event["goalie_in_id"]
-                            print(f"Visiting goalie: {visiting_goalie}")
                     else:
                         if event_team == home_id:
                             home_goalie = event["goalie_in_id"]
-                            print(f"{period} - {raw_time}: Home goalie change: {home_goalie}")
                         else:
                             visiting_goalie = event["goalie_in_id"]
-                            print(f"{period} - {raw_time}: Visiting goalie change: {visiting_goalie}")
 
                 # penalty
                 elif event_type == "penalty" and event["penalty_class_id"]  in ["1", "2", "3"]: #CHECK IF THESE IDs ARE CORRECT - 1: Minor / 2: ??? / 3: Major
@@ -222,7 +223,6 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
                             penalty_assignment(home_penalties, penalty)
                         else:
                             penalty_assignment(visiting_penalties, penalty)
-                        print(f"{period} - {raw_time}: Team {pen_team} - {raw_length} minute penalty")
 
                 # shot on goal incl. goals
                 elif event_type == "shot":
@@ -242,27 +242,28 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
                                 penalty_goal_scored(home_penalties)
 
                     shot_type = "goal" if is_goal else "shot"
-                    print(f"{period} - {raw_time}: {shooter} {shot_type} on {goalie} at {home_skaters}v{visiting_skaters}")
 
                 # faceoff
                 elif event_type == "faceoff":
-                    print(f"{period} - {raw_time}: faceoff {current_time}")
                     ot_ppexp_nowhistle = 0
 
                 # compile tables
                 if event_type in ["faceoff", "shot", "hit", "blocked_shot"]:
                     events_out.append({"event_id": event_id, "game_id": game_id, "type": event_type, "time": current_time, "x": event["x_location"], "y": event["y_location"]})
-                if event_type in ["shot"]:
+                if event_type == "shot":
+                    goalie_id = event["goalie"]["player_id"]
+                    if not goalie_id: goalie_id = None
+
                     shots_out.append({"event_id": event_id, 
                                       "shot_type": event["shot_type"], 
                                       "player_id": event["player"]["player_id"], 
-                                      "goalie_id": event["goalie"]["player_id"],
+                                      "goalie_id": goalie_id,
                                       "is_goal": event["game_goal_id"] != "",
                                       "shot_team_id": event["player"]["team_id"],
                                       "goalie_team_id": event["goalie"]["team_id"],
                                       "xg": None
                                       })
-                if event_type in ["goal"]:
+                if event_type == "goal":
                     event_id = f"{game_id}{(events_processed - 1):04}"
                     if event["assist1_player_id"]:
                         assists_out.append({"event_id": event_id, "player_id": event["assist1_player_id"], "primary_assist": True})
@@ -272,6 +273,19 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
                         plusminus_out.append({"event_id": event_id, "player_id": player["player_id"], "plus": True})
                     for player in event["minus"]:
                         plusminus_out.append({"event_id": event_id, "player_id": player["player_id"], "plus": False})
+                if event_type == "penalty":
+                    if event['player_id']:
+                        event_id = f"{game_id}{(events_processed - 1):04}"
+                        penalties_out.append({
+                            "event_id": event_id,
+                            "game_id": game_id,
+                            "player_id": event['player_id'],
+                            "penalty_class": event['penalty_class_id'],
+                            "pim": int(float(event['minutes']))
+                        })
+                    
+
+
                         
                         
 
@@ -289,8 +303,8 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
         states_out.append({
             'state_id': f"{game_id}{current_start:05}",
             'game_id': game_id,
-            'start': current_start,
-            'end': max_time,
+            'start_time': current_start,
+            'end_time': max_time,
         })
         teamstates_out.append({
             'state_id': f"{game_id}{current_start:05}",
@@ -309,26 +323,64 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
     # push to postgres
     engine = create_engine(conn_string)
     events_out = pd.DataFrame(events_out)
-    events_out.to_sql('events', engine, if_exists='replace', index=False)
+    events_out.to_sql('events', engine, if_exists='append', index=False)
     shots_out = pd.DataFrame(shots_out)
-    shots_out.to_sql('shots', engine, if_exists='replace', index=False)
+    shots_out.to_sql('shots', engine, if_exists='append', index=False)
     assists_out = pd.DataFrame(assists_out)
-    assists_out.to_sql('assists', engine, if_exists='replace', index=False)
+    assists_out.to_sql('assists', engine, if_exists='append', index=False)
     plusminus_out = pd.DataFrame(plusminus_out)
-    plusminus_out.to_sql('plusminus', engine, if_exists='replace', index=False)
+    plusminus_out.to_sql('plusminus', engine, if_exists='append', index=False)
     states_out = pd.DataFrame(states_out)
-    states_out.to_sql('states', engine, if_exists='replace', index=False)
+    states_out.to_sql('states', engine, if_exists='append', index=False)
     teamstates_out = pd.DataFrame(teamstates_out)
-    teamstates_out.to_sql('teamstates', engine, if_exists='replace', index=False)
-
+    teamstates_out.to_sql('teamstates', engine, if_exists='append', index=False)
+    penalties_out = pd.DataFrame(penalties_out)
+    penalties_out.to_sql('penalties', engine, if_exists='append', index=False)
 
 # Right now this does nothing don't call it
 def parse_season(season_id: str):
+    print(f"Parsing season {season_id}")
     schedule = fetch_schedule(season_id)
+    schedule = [game for game in schedule if game['final'] == '1']
+
+    games_out = []
+    
     for game in schedule:
-        home_team = game["home_team"]
-        visiting_team = game["visiting_team"]
+        home_id = game["home_team"]
+        visiting_id = game["visiting_team"]
         game_id = game["game_id"]
+        date = game["date_played"]
+        use_shootouts = game["use_shootouts"] == '1'
+        parse_game(game_id, home_id, visiting_id, use_shootouts)
+
+        games_out.append({
+            'game_id': game_id,
+            'home_id': home_id,
+            'visiting_id': visiting_id,
+            'date': date,
+            'season_id': season_id
+        })
+        
+    engine = create_engine(conn_string)
+    games_out = pd.DataFrame(games_out)
+    games_out.to_sql('games', engine, if_exists='append', index=False)
+
+def parse_all():
+    seasons = fetch_seasons()
+    for season in seasons:
+        season_id = season['season_id']
+        if season['playoff'] == 1:
+            season_type = 2
+        elif season['career'] == 1:
+            season_type = 1
+        else:
+            season_type = 0
+        season_name = season['season_name']
+        parse_season(season_id)
+
+        engine = create_engine(conn_string)
+        season = pd.DataFrame([{"season_id": season_id, "season_type": season_type, "season_name": season_name}])
+        season.to_sql('seasons', engine, if_exists='append', index=False)
 
 if __name__ == "__main__":
-    parse_game("138", "3", "6")
+    parse_all()
