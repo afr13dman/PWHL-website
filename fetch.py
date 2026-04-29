@@ -81,7 +81,7 @@ def early_exp(penalties):
             start = penalties[i]["end"]
             penalties[i]["end"] = penalties[i]["start"] + penalties[i]["length"]
 
-def parse_game(game_id: str, home_id: str, use_shootouts: bool = True):
+def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool = True):
     # right now this just spits pbp data into console
     events = fetch_pbp(game_id)
 
@@ -90,6 +90,7 @@ def parse_game(game_id: str, home_id: str, use_shootouts: bool = True):
     plusminus_out = []
     shots_out = []
     states_out = []
+    teamstates_out = []
     
     # TEST CODE 
     #events = None
@@ -146,8 +147,26 @@ def parse_game(game_id: str, home_id: str, use_shootouts: bool = True):
             if current_state is not None:
                 states.append({
                     'state': current_state,
-                    'start': max(current_start - 1, 0),
-                    'end': current_time - 1
+                    'start': current_start,
+                    'end': current_time
+                })
+                states_out.append({
+                    'state_id': f"{game_id}{current_start:05}",
+                    'game_id': game_id,
+                    'start': current_start,
+                    'end': max_time,
+                })
+                teamstates_out.append({
+                    'state_id': f"{game_id}{current_start:05}",
+                    'team_id': home_id,
+                    'skaters': current_state[0],
+                    'goalie_pulled': home_goalie is None,
+                })
+                teamstates_out.append({
+                    'state_id': f"{game_id}{current_start:05}",
+                    'team_id': visiting_id,
+                    'skaters': current_state[1],
+                    'goalie_pulled': visiting_goalie is None,
                 })
             current_state = state
             current_start = current_time
@@ -232,7 +251,7 @@ def parse_game(game_id: str, home_id: str, use_shootouts: bool = True):
 
                 # compile tables
                 if event_type in ["faceoff", "shot", "hit", "blocked_shot"]:
-                    events_out.append({"event_id": event_id, "type": event_type, "time": current_time, "x": event["x_location"], "y": event["y_location"]})
+                    events_out.append({"event_id": event_id, "game_id": game_id, "type": event_type, "time": current_time, "x": event["x_location"], "y": event["y_location"]})
                 if event_type in ["shot"]:
                     shots_out.append({"event_id": event_id, 
                                       "shot_type": event["shot_type"], 
@@ -240,7 +259,8 @@ def parse_game(game_id: str, home_id: str, use_shootouts: bool = True):
                                       "goalie_id": event["goalie"]["player_id"],
                                       "is_goal": event["game_goal_id"] != "",
                                       "shot_team_id": event["player"]["team_id"],
-                                      "goalie_team_id": event["goalie"]["team_id"]
+                                      "goalie_team_id": event["goalie"]["team_id"],
+                                      "xg": None
                                       })
                 if event_type in ["goal"]:
                     event_id = f"{game_id}{(events_processed - 1):04}"
@@ -259,17 +279,32 @@ def parse_game(game_id: str, home_id: str, use_shootouts: bool = True):
                 # move to next event and restart loop
                 events_processed += 1
     
+    # record final game state
     if current_state is not None:
         states.append({
             'state': current_state,
             'start': current_start,
-            'end': max_time
+            'end': max_time,
+        })
+        states_out.append({
+            'state_id': f"{game_id}{current_start:05}",
+            'game_id': game_id,
+            'start': current_start,
+            'end': max_time,
+        })
+        teamstates_out.append({
+            'state_id': f"{game_id}{current_start:05}",
+            'team_id': home_id,
+            'skaters': current_state[0],
+            'goalie_pulled': home_goalie is None,
+        })
+        teamstates_out.append({
+            'state_id': f"{game_id}{current_start:05}",
+            'team_id': visiting_id,
+            'skaters': current_state[1],
+            'goalie_pulled': visiting_goalie is None,
         })
     
-    
-    # Print the states
-    for s in states:
-        print(f"State {s['state']}: from {s['start']} to {s['end']}")
 
     # push to postgres
     engine = create_engine(conn_string)
@@ -281,6 +316,10 @@ def parse_game(game_id: str, home_id: str, use_shootouts: bool = True):
     assists_out.to_sql('assists', engine, if_exists='replace', index=False)
     plusminus_out = pd.DataFrame(plusminus_out)
     plusminus_out.to_sql('plusminus', engine, if_exists='replace', index=False)
+    states_out = pd.DataFrame(states_out)
+    states_out.to_sql('states', engine, if_exists='replace', index=False)
+    teamstates_out = pd.DataFrame(teamstates_out)
+    teamstates_out.to_sql('teamstates', engine, if_exists='replace', index=False)
 
 
 # Right now this does nothing don't call it
@@ -292,4 +331,4 @@ def parse_season(season_id: str):
         game_id = game["game_id"]
 
 if __name__ == "__main__":
-    parse_game("138", "3")
+    parse_game("138", "3", "6")
