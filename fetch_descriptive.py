@@ -23,7 +23,7 @@ def record_players(team_id, season_id, df):
             player_id = player['playerId']
             if not (df['player_id'] == player_id).any():
                 new_row = pd.DataFrame([{
-                                        "player_id": player_id, 
+                                        "player_id": int(player_id), 
                                          "first_name": player['first_name'], 
                                          "last_name": player["last_name"], 
                                          "player_image": player['player_image'], 
