@@ -34,7 +34,7 @@ def record_players(team_id, season_id, df):
     return df
 
 def update_biographical():
-    df = pd.DataFrame(columns=['player_id', 'first_name', 'last_name', 'player_image', 'shoots', 'team'])
+    df = pd.DataFrame(columns=['player_id', 'first_name', 'last_name', 'player_image', 'shoots', 'team_id'])
     for season in fetch_seasons():
         season_id = season['season_id']
         for team in fetch_teams(season_id):
