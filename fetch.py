@@ -249,7 +249,7 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
 
                 # compile tables
                 if event_type in ["faceoff", "shot", "hit", "blocked_shot"]:
-                    events_out.append({"event_id": event_id, "game_id": game_id, "type": event_type, "time": current_time, "x": event["x_location"], "y": event["y_location"]})
+                    events_out.append({"event_id": event_id, "game_id": game_id, "event_type": event_type, "time": current_time, "x": event["x_location"], "y": event["y_location"]})
                 if event_type == "shot":
                     goalie_id = event["goalie"]["player_id"]
                     if not goalie_id: goalie_id = None
