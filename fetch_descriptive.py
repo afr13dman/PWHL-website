@@ -28,7 +28,7 @@ def record_players(team_id, season_id, df):
                                          "last_name": player["last_name"], 
                                          "player_image": player['player_image'], 
                                          "shoots": player['shoots'],
-                                         "team": player['latest_team_id']
+                                         "team_id": player['latest_team_id']
                                          }])
                 df = pd.concat([df, new_row], ignore_index=True)
     return df
