@@ -20,21 +20,28 @@ def record_players(team_id, season_id, df):
     players = fetch_players(team_id, season_id)
     for player in players:
         if type(player) == dict:
-            player_id = player['playerId']
-            if not (df['player_id'] == player_id).any():
+            player_id = int(player['playerId'])
+            if not df['player_id'].isin([player_id]).any():
+
+                position = player['position']
+                if 'D' in position: position = 'D'
+                elif position == 'G': pass
+                else: position = 'F'
+                
                 new_row = pd.DataFrame([{
-                                        "player_id": int(player_id), 
+                                        "player_id": player_id, 
                                          "first_name": player['first_name'], 
                                          "last_name": player["last_name"], 
                                          "player_image": player['player_image'], 
                                          "shoots": player['shoots'],
-                                         "team_id": team_id
+                                         "team_id": team_id,
+                                         "position": position
                                          }])
                 df = pd.concat([df, new_row], ignore_index=True)
     return df
 
 def update_biographical():
-    df = pd.DataFrame(columns=['player_id', 'first_name', 'last_name', 'player_image', 'shoots', 'team_id'])
+    df = pd.DataFrame(columns=['player_id', 'first_name', 'last_name', 'player_image', 'shoots', 'team_id', 'position'])
     for season in fetch_seasons():
         season_id = season['season_id']
         for team in fetch_teams(season_id):
