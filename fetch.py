@@ -336,13 +336,13 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
     states.append({
         'state': current_state,
         'start': current_start,
-        'end': max_time,
+        'end': max_time+1,
     })
     states_out.append({
         'state_id': f"{game_id}{current_start:05}",
         'game_id': game_id,
         'start_time': current_start,
-        'end_time': max_time,
+        'end_time': max_time+1,
     })
     teamstates_out.append({
         'state_id': f"{game_id}{current_start:05}",
