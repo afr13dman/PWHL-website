@@ -93,7 +93,6 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
     events_out = []
     assists_out = []
     plusminus_out = []
-    shots_out = []
     states_out = []
     teamstates_out = []
     penalties_out = []
@@ -166,12 +165,16 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
                     'team_id': home_id,
                     'skaters': current_state[0],
                     'goalie_pulled': home_goalie is None,
+                    'opp_skaters': current_state[1],
+                    'opp_goalie_pulled': visiting_goalie is None,
                 })
                 teamstates_out.append({
                     'state_id': f"{game_id}{current_start:05}",
                     'team_id': visiting_id,
                     'skaters': current_state[1],
                     'goalie_pulled': visiting_goalie is None,
+                    'opp_skaters': current_state[0],
+                    'opp_goalie_pulled': home_goalie is None,
                 })
             current_state = state
             current_start = current_time
@@ -249,20 +252,36 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
 
                 # compile tables
                 if event_type in ["faceoff", "shot", "hit", "blocked_shot"]:
-                    events_out.append({"event_id": event_id, "game_id": game_id, "event_type": event_type, "time": current_time, "x": event["x_location"], "y": event["y_location"]})
+                    events_out.append({"event_id": event_id, 
+                                       "game_id": game_id, 
+                                       "event_type": event_type, 
+                                       "event_time": current_time, 
+                                       "x": 100 - float(event["x_location"])/3, 
+                                       "y": 42.5 - float(event["y_location"])*85/300,
+                                       "shot_type": None, 
+                                       "player_id": None, 
+                                       "goalie_id": None,
+                                       "is_goal": None,
+                                       "team_id": None,
+                                       "goalie_team_id":None,
+                                       "xg": None})
                 if event_type == "shot":
                     goalie_id = event["goalie"]["player_id"]
                     if not goalie_id: goalie_id = None
 
-                    shots_out.append({"event_id": event_id, 
-                                      "shot_type": event["shot_type"], 
-                                      "player_id": event["player"]["player_id"], 
-                                      "goalie_id": goalie_id,
-                                      "is_goal": event["game_goal_id"] != "",
-                                      "shot_team_id": event["player"]["team_id"],
-                                      "goalie_team_id": event["goalie"]["team_id"],
-                                      "xg": None
-                                      })
+                    events_out.append({"event_id": event_id, 
+                                       "game_id": game_id, 
+                                       "event_type": event_type, 
+                                       "event_time": current_time, 
+                                       "x": 100 - float(event["x_location"])/3, 
+                                       "y": 42.5 - float(event["y_location"])*85/300,
+                                       "shot_type": event["shot_type"], 
+                                       "player_id": event["player"]["player_id"], 
+                                       "goalie_id": goalie_id,
+                                       "is_goal": event["game_goal_id"] != "",
+                                       "team_id": event["team_id"],
+                                       "goalie_team_id": event["goalie"]["team_id"],
+                                       "xg": None})
                 if event_type == "goal":
                     event_id = f"{game_id}{(events_processed - 1):04}"
                     if event["assist1_player_id"]:
@@ -324,8 +343,6 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
     engine = create_engine(conn_string)
     events_out = pd.DataFrame(events_out)
     events_out.to_sql('events', engine, if_exists='append', index=False)
-    shots_out = pd.DataFrame(shots_out)
-    shots_out.to_sql('shots', engine, if_exists='append', index=False)
     assists_out = pd.DataFrame(assists_out)
     assists_out.to_sql('assists', engine, if_exists='append', index=False)
     plusminus_out = pd.DataFrame(plusminus_out)
