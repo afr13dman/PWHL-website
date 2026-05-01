@@ -250,7 +250,7 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
                     ot_ppexp_nowhistle = 0
 
                 # compile tables
-                if event_type in ["faceoff", "shot", "hit", "blocked_shot"]:
+                if event_type in ["faceoff", "hit", "blocked_shot"]:
                     events_out.append({"event_id": event_id, 
                                        "game_id": game_id, 
                                        "event_type": event_type, 
@@ -390,8 +390,9 @@ def parse_season(season_id: str):
         })
         
     engine = create_engine(conn_string)
-    games_out = pd.DataFrame(games_out)
-    games_out.to_sql('games', engine, if_exists='append', index=False)
+    if games_out:
+        games_out = pd.DataFrame(games_out)
+        games_out.to_sql('games', engine, if_exists='append', index=False)
 
 def parse_all():
     seasons = fetch_seasons()
