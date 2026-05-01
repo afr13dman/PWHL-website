@@ -297,7 +297,7 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
                         plusminus_out.append({"event_id": event_id, "player_id": player["player_id"], "plus": False})
                 if event_type == "penalty":
                     if event['player_id']:
-                        event_id = f"{game_id}{(events_processed - 1):04}"
+                        event_id = event_id
                         events_out.append({
                             "event_id": event_id,
                             "game_id": game_id,
@@ -316,12 +316,6 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
                             "pim": int(float(event['minutes']))
                         })
                     
-
-
-                        
-                        
-
-                
                 # move to next event and restart loop
                 events_processed += 1
     
