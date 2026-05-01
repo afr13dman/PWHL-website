@@ -396,9 +396,9 @@ def parse_all():
     seasons = fetch_seasons()
     for season in seasons:
         season_id = season['season_id']
-        if season['playoff'] == 1:
+        if season['playoff'] == '1':
             season_type = 2
-        elif season['career'] == 1:
+        elif season['career'] == '1':
             season_type = 1
         else:
             season_type = 0
