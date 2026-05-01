@@ -384,7 +384,8 @@ def parse_season(season_id: str):
             'home_id': home_id,
             'visiting_id': visiting_id,
             'date': date,
-            'season_id': season_id
+            'season_id': season_id,
+            'use_shootouts': use_shootouts
         })
         
     engine = create_engine(conn_string)
