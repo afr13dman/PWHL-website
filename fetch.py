@@ -183,7 +183,7 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
             if event['event_time'] > current_time:
                 break
             else:
-                event_id = f"{game_id}{events_processed:04}"
+                event_id = int(f"{game_id}{events_processed:04}")
                 event_type = event["event"]
                 event_team = event.get("team_id", event.get("team", -1))
                 raw_time = event.get("time_formatted", event.get("time", event.get("time_off_formatted", "-1:-1")))
@@ -282,7 +282,7 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
                                        "penalty_class": None,
                                        "pim": None})
                 if event_type == "goal":
-                    event_id = f"{game_id}{(events_processed - 1):04}"
+                    event_id = int(f"{game_id}{(events_processed - 1):04}")
                     if event["assist1_player_id"]:
                         assists_out.append({"event_id": event_id, "player_id": event["assist1_player_id"], "primary_assist": True})
                     if event["assist2_player_id"]:
