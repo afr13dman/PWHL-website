@@ -228,8 +228,6 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
 
                 # shot on goal incl. goals
                 elif event_type == "shot":
-                    shooter = event["player"]["player_id"]
-                    goalie = event["goalie"]["player_id"]
                     is_goal = event["game_goal_id"] != ""
 
                     pp_sit = home_skaters - int(home_goalie is None) != visiting_skaters - int(visiting_goalie is None)
@@ -242,8 +240,6 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
                                 penalty_goal_scored(visiting_penalties)
                             else:
                                 penalty_goal_scored(home_penalties)
-
-                    shot_type = "goal" if is_goal else "shot"
 
                 # faceoff
                 elif event_type == "faceoff":
@@ -315,7 +311,23 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
                             "penalty_class": event['penalty_class_id'],
                             "pim": int(float(event['minutes']))
                         })
-                    
+                    if event_type == "penaltyshot":
+                        goalie_id = event["goalie"]["player_id"]
+                        events_out.append({"event_id": event_id, 
+                                       "game_id": game_id, 
+                                       "event_type": event_type, 
+                                       "event_time": current_time, 
+                                       "x": None, 
+                                       "y": None,
+                                       "shot_type": "penaltyshot", 
+                                       "player_id": event["player"]["player_id"], 
+                                       "goalie_id": goalie_id,
+                                       "is_goal": event["result"] == "goal",
+                                       "team_id": event["team_id"],
+                                       "goalie_team_id": event["goalie"]["team_id"],
+                                       "xg": 0.3,
+                                       "penalty_class": None,
+                                       "pim": None})
                 # move to next event and restart loop
                 events_processed += 1
     
@@ -363,7 +375,6 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
     teamstates_out = pd.DataFrame(teamstates_out)
     teamstates_out.to_sql('teamstates', engine, if_exists='append', index=False)
 
-# Right now this does nothing don't call it
 def parse_season(season_id: str):
     print(f"Parsing season {season_id}")
     schedule = fetch_schedule(season_id)
