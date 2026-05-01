@@ -337,12 +337,16 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
             'team_id': home_id,
             'skaters': current_state[0],
             'goalie_pulled': home_goalie is None,
+            'opp_skaters': current_state[1],
+            'opp_goalie_pulled': visiting_goalie is None
         })
         teamstates_out.append({
             'state_id': f"{game_id}{current_start:05}",
             'team_id': visiting_id,
             'skaters': current_state[1],
             'goalie_pulled': visiting_goalie is None,
+            'opp_skaters': current_state[0],
+            'opp_goalie_pulled': home_goalie is None    
         })
     
 
