@@ -2,13 +2,12 @@ import numpy as np
 import pandas as pd
 
 from sklearn.metrics import make_scorer, roc_auc_score
-from sklearn.datasets import make_classification
-from sklearn.model_selection import cross_val_score, GridSearchCV, StratifiedKFold
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from xgboost import XGBClassifier
 
 import os
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, text, update
+from sqlalchemy import create_engine, text
 
 load_dotenv()
 conn_string = os.getenv("CONN_STRING")
