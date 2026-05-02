@@ -1,0 +1,46 @@
+WITH adj AS (SELECT
+  event_id, 
+  ABS(x) AS x_adj,
+  ABS(y) AS y_adj,
+  LAG(x) OVER (PARTITION BY game_id ORDER BY events.event_id) AS prev_x,
+  LAG(y) OVER (PARTITION BY game_id ORDER BY events.event_id) AS prev_y,
+  ABS(LAG(x) OVER (PARTITION BY game_id ORDER BY events.event_id)) AS prev_x_adj,
+  ABS(LAG(y) OVER (PARTITION BY game_id ORDER BY events.event_id)) AS prev_y_adj,
+  LAG(event_time) OVER (PARTITION BY game_id ORDER BY events.event_id) AS prev_time,
+  LAG(team_id) OVER (PARTITION BY game_id ORDER BY events.event_id) AS prev_team,
+  LAG(event_type) OVER (PARTITION BY game_id ORDER BY events.event_id) AS prev_type
+  FROM events
+)
+SELECT 
+  events.event_id as event_id,
+  x_adj,
+  y_adj,
+  SQRT((x_adj-89)^2 + y_adj^2) AS distance,
+  ABS(DEGREES(ATAN2(-y, 89-x))) AS angle,
+  x_adj > 89 AS behind_the_net,
+  shot_type,
+  prev_type,
+  CAST(events.team_id = prev_team AS BOOLEAN) AS prev_event_same_team,
+  SQRT((x-prev_x)^2 + (y_adj-prev_y)^2) AS dist_from_prev_event,
+  SQRT((x-prev_x)^2 + (y-prev_y)^2) / GREATEST(CAST(event_time - prev_time AS numeric), 0.01) AS speed_from_prev_event,
+  CAST((y > 0) != (prev_y > 0) AS BOOLEAN) AS crossed_royal_road,
+  event_time - prev_time AS time_from_prev_event,
+  events.team_id = home_id AS home_team_shot,
+  (event_time-1) / 1200 + 1 AS period,
+  CASE 
+    WHEN skaters > opp_skaters THEN 'pp'
+    WHEN skaters < opp_skaters THEN 'sh'
+    ELSE 'ev'
+  END AS  game_state,
+  goalie_pulled,
+  CASE
+    WHEN use_shootouts AND event_time > 3600 THEN 3900 - event_time
+    ELSE 1200 - (event_time-1) % 1200 END
+  AS time_remaining,
+  is_goal
+FROM events
+JOIN adj ON adj.event_id = events.event_id 
+JOIN games ON events.game_id = games.game_id
+JOIN states ON events.game_id = states.game_id AND states.start_time <= event_time AND states.end_time > event_time
+JOIN teamstates ON states.state_id = teamstates.state_id AND teamstates.team_id = events.team_id
+WHERE events.event_type = 'shot' AND goalie_id IS NOT NULL
