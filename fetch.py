@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 import requests
 import pandas as pd
 import os
@@ -377,29 +377,38 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
     teamstates_out = pd.DataFrame(teamstates_out)
     teamstates_out.to_sql('teamstates', engine, if_exists='append', index=False)
 
-def parse_season(season_id: str):
+def parse_season(season_id: str, replace=True):
     print(f"Parsing season {season_id}")
     schedule = fetch_schedule(season_id)
     schedule = [game for game in schedule if game['final'] == '1']
 
     games_out = []
-    
+
+    engine = create_engine(conn_string)
+    games_in_db = []
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT game_id FROM games"))
+        for row in result:
+            games_in_db.append(row[0])
+
     for game in schedule:
         home_id = game["home_team"]
         visiting_id = game["visiting_team"]
         game_id = game["game_id"]
         date = game["date_played"]
         use_shootouts = game["use_shootouts"] == '1'
-        parse_game(game_id, home_id, visiting_id, use_shootouts)
 
-        games_out.append({
-            'game_id': game_id,
-            'home_id': home_id,
-            'visiting_id': visiting_id,
-            'date': date,
-            'season_id': season_id,
-            'use_shootouts': use_shootouts
-        })
+        if int(game_id) not in games_in_db:
+            parse_game(game_id, home_id, visiting_id, use_shootouts)
+
+            games_out.append({
+                'game_id': game_id,
+                'home_id': home_id,
+                'visiting_id': visiting_id,
+                'date': date,
+                'season_id': season_id,
+                'use_shootouts': use_shootouts
+            })
         
     engine = create_engine(conn_string)
     if games_out:
@@ -408,6 +417,13 @@ def parse_season(season_id: str):
 
 def parse_all():
     seasons = fetch_seasons()
+    engine = create_engine(conn_string)
+    seasons_in_db = []
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT season_id FROM seasons"))
+        for row in result:
+            seasons_in_db.append(row[0])
+
     for season in seasons:
         season_id = season['season_id']
         if season['playoff'] == '1':
@@ -419,9 +435,10 @@ def parse_all():
         season_name = season['season_name']
         parse_season(season_id)
 
-        engine = create_engine(conn_string)
-        season = pd.DataFrame([{"season_id": season_id, "season_type": season_type, "season_name": season_name}])
-        season.to_sql('seasons', engine, if_exists='append', index=False)
+        if int(season_id) not in seasons_in_db:
+            engine = create_engine(conn_string)
+            season = pd.DataFrame([{"season_id": season_id, "season_type": season_type, "season_name": season_name}])
+            season.to_sql('seasons', engine, if_exists='append', index=False)
 
 if __name__ == "__main__":
     parse_all()
