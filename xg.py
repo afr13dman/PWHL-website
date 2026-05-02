@@ -9,6 +9,8 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 
+num_outerfolds = 5
+
 load_dotenv()
 conn_string = os.getenv("CONN_STRING")
 
@@ -19,11 +21,12 @@ def auc_with_calibration(y_true, y_pred):
     else:
         return 0
     
-def fetch_data():
+def fetch_data(nullonly = False):
     engine = create_engine(conn_string)
     query = ""
     with open('xg-query.txt', 'r') as file:
         query = file.read()
+    if nullonly: query += " AND xg IS NULL"
     df = pd.read_sql_query(text(query), engine)
 
     categoricals = [
@@ -54,7 +57,7 @@ def retrain_model():
     }
     
     # Create the outer and inner cross-validation objects
-    outer_cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    outer_cv = StratifiedKFold(n_splits=num_outerfolds, shuffle=True, random_state=42)
     inner_cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
 
     # Perform nested cross-validation
@@ -114,6 +117,35 @@ def push_results():
         ))
         conn.execute(text("DROP TABLE temp_staging"))
 
+def calc_new_xg():
+    models = []
+    for i in range(num_outerfolds):
+        model = XGBClassifier()
+        model.load_model(f'model_output/model_{i}.json')
+        models.append(model)
+
+    X, y, ids = fetch_data(nullonly=True)
+
+    output = pd.DataFrame({'event_id': ids})
+
+    if len(X):
+        for i, model in enumerate(models):
+            output[f'model_{i}'] = model.predict_proba(X)[:, 1]
+
+    output['consensus'] = output.drop('event_id', axis=1).mean(axis=1)
+    output = output[['event_id', 'consensus']]
+
+    engine = create_engine(conn_string)
+    output.to_sql('temp', engine, if_exists='replace', index=False)
+    with engine.begin() as conn:
+        query = """
+            UPDATE events
+            SET xg = temp.consensus
+            FROM temp
+            WHERE events.event_id = temp.event_id;
+            DROP TABLE temp
+        """
+        conn.execute(text(query))
+
 if __name__ == "__main__":
-    retrain_model()
-    push_results()
+    calc_new_xg()
