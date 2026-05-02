@@ -193,6 +193,8 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
                 if event_type == "goalie_change":
                     if not event["goalie_in_id"]:
                         goalie_in = None
+                    elif event["goalie_in_id"] == 0:
+                        goalie_in = None
                     else:
                         goalie_in = event["goalie_in_id"]
                     if event_team == home_id:
