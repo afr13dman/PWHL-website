@@ -52,6 +52,24 @@ def update_biographical():
     engine = create_engine(conn_string)
     df.to_sql('biographical', engine, if_exists='replace', index=False)
 
+def update_teams():
+    df = pd.DataFrame(columns=['team_id', 'season_id', 'city', 'nickname', 'code', 'team_logo_url', 'division_id'])
+    for season in fetch_seasons ():
+        season_id = season['season_id']
+        for team in fetch_teams(season_id):
+            new_row = pd.DataFrame([{
+                                    "team_id": team['id'], 
+                                    "season_id": season_id, 
+                                    "city": team['city'], 
+                                    "nickname": team['nickname'],
+                                    "code": team['code'],
+                                    "team_logo_url": team['team_logo_url'], 
+                                    "division_id": team['division_id']
+                                }])
+            df = pd.concat([df, new_row], ignore_index=True)
+    engine = create_engine(conn_string)
+    df.to_sql('teams', engine, if_exists='replace', index=False)
+
 
 if __name__ == "__main__":
-    update_biographical()
+    update_teams()
