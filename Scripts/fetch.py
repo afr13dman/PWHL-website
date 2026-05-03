@@ -355,7 +355,7 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
     for state in teamstates_out: print(state)
     
 
-    '''# push to postgres
+    # push to postgres
     engine = create_engine(conn_string)
     events_out = pd.DataFrame(events_out)
     events_out.to_sql('events', engine, if_exists='append', index=False)
@@ -366,7 +366,7 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
     states_out = pd.DataFrame(states_out)
     states_out.to_sql('states', engine, if_exists='append', index=False)
     teamstates_out = pd.DataFrame(teamstates_out)
-    teamstates_out.to_sql('teamstates', engine, if_exists='append', index=False)'''
+    teamstates_out.to_sql('teamstates', engine, if_exists='append', index=False)
 
 def parse_season(season_id: str, replace=True):
     print(f"Parsing season {season_id}")
@@ -432,4 +432,4 @@ def parse_all():
             season.to_sql('seasons', engine, if_exists='append', index=False)
 
 if __name__ == "__main__":
-    parse_game('338', '1', '5')
+    parse_all()
