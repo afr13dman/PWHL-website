@@ -24,7 +24,7 @@ def auc_with_calibration(y_true, y_pred):
 def fetch_data(nullonly = False):
     engine = create_engine(conn_string)
     query = ""
-    with open('xg-query.txt', 'r') as file:
+    with open('Scripts/xg-query.txt', 'r') as file:
         query = file.read()
     if nullonly: query += " AND xg IS NULL"
     df = pd.read_sql_query(text(query), engine)

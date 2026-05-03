@@ -1,6 +1,6 @@
 import requests
 import pandas as pd
-from fetch import fetch_seasons
+from Scripts.fetch import fetch_seasons
 import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
