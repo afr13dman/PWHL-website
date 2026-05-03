@@ -148,4 +148,5 @@ def calc_new_xg():
         conn.execute(text(query))
 
 if __name__ == "__main__":
-    calc_new_xg()
+    retrain_model()
+    push_results()
