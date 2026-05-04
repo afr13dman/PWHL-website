@@ -51,9 +51,9 @@ def retrain_model():
 
     # Define the hyperparameter grid for XGBoost
     param_grid = {
+        'learning_rate': [0.1, 0.01, 0.001] ,
         'max_depth': [3, 5, 7],
-        'learning_rate': [0.1, 0.01, 0.001],
-        'n_estimators': [50, 100, 200]
+        'n_estimators': [100, 200, 300]
     }
     
     # Create the outer and inner cross-validation objects
@@ -148,5 +148,4 @@ def calc_new_xg():
         conn.execute(text(query))
 
 if __name__ == "__main__":
-    retrain_model()
-    push_results()
+    retrain_model() 

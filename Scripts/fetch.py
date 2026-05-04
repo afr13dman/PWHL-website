@@ -187,6 +187,12 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
                 if event_type == "goalie_change":
                     if not event["goalie_in_id"]:
                         goalie_in = None
+                        for i in range(1, 4):
+                            if events[events_processed-i]['event'] == "goalie_change":
+                                if events[events_processed-i]['team_id'] == event_team:
+                                    goalie_in = events[events_processed-i]['goalie_in_id']
+                            else:
+                                break
                     elif event["goalie_in_id"] == '0':
                         goalie_in = None
                     else:
@@ -257,7 +263,7 @@ def parse_game(game_id: str, home_id: str, visiting_id: str, use_shootouts: bool
                                        "pim": None})
                 if event_type == "shot":
                     goalie_id = event["goalie"]["player_id"]
-                    if not goalie_id or goalie_id == '0': 
+                    if not goalie_id or goalie_id == '0' or 'EN' in event.get('goal_type_name', 'None'): 
                         goalie_id = None
                         xg = 1.
                     else:
