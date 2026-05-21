@@ -2,6 +2,7 @@ WITH adj AS (SELECT
   event_id, 
   ABS(x) AS x_adj,
   ABS(y) AS y_adj,
+  x * y >= 0 AS left_side,
   LAG(x) OVER (PARTITION BY game_id ORDER BY events.event_id) AS prev_x,
   LAG(y) OVER (PARTITION BY game_id ORDER BY events.event_id) AS prev_y,
   ABS(LAG(x) OVER (PARTITION BY game_id ORDER BY events.event_id)) AS prev_x_adj,
@@ -13,14 +14,16 @@ WITH adj AS (SELECT
 )
 SELECT 
   events.event_id as event_id,
+  games.season_id as season_id,
   x_adj,
   y_adj,
   SQRT((x_adj-89)^2 + y_adj^2) AS distance,
   ABS(DEGREES(ATAN2(-y, 89-x))) AS angle,
   x_adj > 89 AS behind_the_net,
   shot_type,
-  prev_type,
-  CAST(events.team_id = prev_team AS BOOLEAN) AS prev_event_same_team,
+  left_side != (sbio.shoots = 'L') AS off_hand,
+  left_side != (gbio.shoots = 'L') AS from_glove_side,
+  prev_type || CAST(events.team_id = prev_team AS TEXT) AS prev_type,
   SQRT((x-prev_x)^2 + (y_adj-prev_y)^2) AS dist_from_prev_event,
   SQRT((x-prev_x)^2 + (y-prev_y)^2) / GREATEST(CAST(event_time - prev_time AS numeric), 0.01) AS speed_from_prev_event,
   CAST((y > 0) != (prev_y > 0) AS BOOLEAN) AS crossed_royal_road,
@@ -43,4 +46,6 @@ JOIN adj ON adj.event_id = events.event_id
 JOIN games ON events.game_id = games.game_id
 JOIN states ON events.game_id = states.game_id AND states.start_time <= event_time AND states.end_time > event_time
 JOIN teamstates ON states.state_id = teamstates.state_id AND teamstates.team_id = events.team_id
-WHERE events.event_type = 'shot' AND goalie_id IS NOT NULL
+JOIN biographical AS sbio ON events.player_id = sbio.player_id
+JOIN biographical AS gbio ON events.goalie_id = gbio.player_id
+WHERE events.event_type = 'shot' AND NOT opp_goalie_pulled

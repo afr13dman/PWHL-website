@@ -1,0 +1,18 @@
+SELECT
+  events.player_id AS shooter_id,
+  goalie_id,
+  events.team_id AS shooter_team_id,
+  goalie_team_id,
+  ABS(x) AS x,
+  y,
+  xg,
+  skaters,
+  opp_skaters,
+  is_goal
+FROM events
+JOIN states ON events.game_id = states.game_id AND events.event_time >= states.start_time AND events.event_time < states.end_time
+JOIN teamstates ON states.state_id = teamstates.state_id AND teamstates.team_id = events.team_id
+JOIN games ON events.game_id = games.game_id
+WHERE event_type = 'shot'
+  AND games.season_id = 8
+  AND NOT goalie_pulled AND NOT opp_goalie_pulled AND goalie_id IS NOT NULL
